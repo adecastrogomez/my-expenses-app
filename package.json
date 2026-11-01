@@ -1,0 +1,23 @@
+{
+  "name": "mis-gastos-app",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm start -w server",
+    "test": "npm test -w server",
+    "db:migrate": "powershell -ExecutionPolicy Bypass -File db/migrate.ps1 update",
+    "db:status": "powershell -ExecutionPolicy Bypass -File db/migrate.ps1 status"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  }
+}

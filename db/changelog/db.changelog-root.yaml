@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - include:
+      file: 001-core-schema.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 002-lockdown-rls.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 003-tags.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 004-budget-targets.sql
+      relativeToChangelogFile: true

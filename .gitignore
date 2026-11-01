@@ -1,0 +1,16 @@
+﻿node_modules
+dist
+server/data
+*.log
+.env
+db/liquibase.properties
+.env
+.env.*
+!.env.example
+db/liquibase.*.properties
+!db/liquibase.properties.example
+
+# Skills de agentes (no deben viajar al repo)
+.agents/
+data/
+skills-lock.json

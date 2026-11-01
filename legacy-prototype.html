@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Finanzas en Pareja</title>
+  
+  <!-- Soporte Web App iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Gastos Pareja">
+  <meta name="theme-color" content="#f8fafc">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js para evolución visual -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Ajustes específicos para iOS WebApp / PWA feel */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .safe-bottom {
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    .safe-top {
+      padding-top: env(safe-area-inset-top, 10px);
+    }
+    /* Ocultar barra de scroll en listas */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex flex-col h-full overflow-hidden select-none">
+
+  <!-- Header Superior -->
+  <header class="bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 safe-top shrink-0 flex items-center justify-between z-10">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-sm shadow-emerald-200">
+        <i data-lucide="wallet" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight text-slate-900 leading-none">Finanzas en Pareja</h1>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <span id="sync-indicator" class="w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse"></span>
+          <span id="sync-status" class="text-[11px] text-slate-500 font-medium">Iniciando...</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Selector de Mes -->
+    <div class="flex items-center bg-slate-100 rounded-full px-2.5 py-1 text-xs font-semibold text-slate-700">
+      <input type="month" id="selected-month-input" class="bg-transparent border-none text-xs font-semibold focus:outline-none text-slate-700 cursor-pointer">
+    </div>
+  </header>
+
+  <!-- Contenedor Principal con Scroll -->
+  <main class="flex-1 overflow-y-auto px-4 pt-3 pb-24 no-scrollbar">
+
+    <!-- TAB 1: RESUMEN MENSUAL -->
+    <section id="tab-overview" class="space-y-4">
+      
+      <!-- Diagnóstico y Semáforo del Plan -->
+      <div id="diagnostic-card" class="rounded-2xl p-4 transition-all shadow-sm flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-950">
+        <div id="diagnostic-icon" class="p-2 rounded-xl bg-white shadow-xs text-emerald-600 mt-0.5">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h2 id="diagnostic-title" class="text-xs font-bold uppercase tracking-wider text-emerald-800">Plan Sobresaliente</h2>
+            <span id="diagnostic-rate" class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-900">25% ahorro</span>
+          </div>
+          <p id="diagnostic-desc" class="text-xs mt-1 leading-snug text-emerald-800/90 font-normal">
+            ¡Excelente ritmo! Estás ahorrando más del 20% de lo ingresado este mes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tarjeta Dinámica Principal: Ingresos, Gastos y Ahorro -->
+      <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex justify-between items-end">
+          <div>
+            <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Ahorro conseguido</span>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="kpi-savings" class="text-3xl font-extrabold tracking-tight text-slate-900">0,00 €</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Margen restante</span>
+            <div id="kpi-savings-pct" class="text-base font-bold text-emerald-600">0%</div>
+          </div>
+        </div>
+
+        <!-- Barra segmentada de distribución del gasto -->
+        <div class="space-y-1.5">
+          <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+            <div id="bar-fixed" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
+            <div id="bar-variable" class="bg-amber-500 h-full transition-all duration-500" style="width: 0%"></div>
+            <div id="bar-discretionary" class="bg-rose-500 h-full transition-all duration-500" style="width: 0%"></div>
+            <div id="bar-savings" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] font-medium text-slate-400 px-0.5">
+            <span>0%</span>
+            <span>Regla Dinámica (50% / 30% / 20%)</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <!-- 2 Subcuadros: Ingresos vs Gastos -->
+        <div class="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+          <div class="bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+            <div class="flex items-center gap-1.5 text-slate-500 text-xs font-medium mb-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+              Ingresos Totales
+            </div>
+            <span id="kpi-income" class="text-base font-bold text-slate-900">0,00 €</span>
+          </div>
+          <div class="bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+            <div class="flex items-center gap-1.5 text-slate-500 text-xs font-medium mb-1">
+              <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
+              Gastos Totales
+            </div>
+            <span id="kpi-expense" class="text-base font-bold text-slate-900">0,00 €</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desglose de Categorías Dinámicas con Alertas -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Desglose de Gastos</h3>
+          <span class="text-xs text-slate-500 font-medium">Recomendado</span>
+        </div>
+
+        <!-- Fijos -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                <i data-lucide="home" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-800">Gastos Fijos</h4>
+                <p class="text-[11px] text-slate-400">Hipoteca, luz base, internet, seguros</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span id="cat-fixed-val" class="text-sm font-bold text-slate-900">0,00 €</span>
+              <div class="text-[11px] font-semibold text-blue-600" id="cat-fixed-pct">0% <span class="text-slate-400 font-normal">/ max 50%</span></div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div id="cat-fixed-progress" class="bg-blue-500 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Variables -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-800">Gastos Variables</h4>
+                <p class="text-[11px] text-slate-400">Supermercado, gasolina, farmacia</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span id="cat-var-val" class="text-sm font-bold text-slate-900">0,00 €</span>
+              <div class="text-[11px] font-semibold text-amber-600" id="cat-var-pct">0%</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div id="cat-var-progress" class="bg-amber-500 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Discrecionales (Avisador de exceso) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden">
+          <div id="disc-warning-banner" class="hidden absolute top-0 left-0 right-0 bg-rose-500 text-white text-[10px] font-bold text-center py-0.5">
+            ¡Atención! Has superado el 30% discrecional
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <i data-lucide="coffee" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-800">Gastos Discrecionales</h4>
+                <p class="text-[11px] text-slate-400">Ocio, cenas, compras, caprichos</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span id="cat-disc-val" class="text-sm font-bold text-slate-900">0,00 €</span>
+              <div class="text-[11px] font-semibold text-rose-600" id="cat-disc-pct">0% <span class="text-slate-400 font-normal">/ max 30%</span></div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div id="cat-disc-progress" class="bg-rose-500 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balance por Miembro de la Pareja -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Aportación y Gastos en Pareja</h3>
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <div class="p-3 bg-indigo-50/70 rounded-xl border border-indigo-100">
+            <span id="partner-a-name-badge" class="text-xs font-bold text-indigo-700 block truncate">Persona 1</span>
+            <div class="mt-1">
+              <span class="text-[10px] text-slate-500">Pagado:</span>
+              <span id="partner-a-paid" class="text-xs font-bold text-slate-800 ml-1">0 €</span>
+            </div>
+          </div>
+          <div class="p-3 bg-purple-50/70 rounded-xl border border-purple-100">
+            <span id="partner-b-name-badge" class="text-xs font-bold text-purple-700 block truncate">Persona 2</span>
+            <div class="mt-1">
+              <span class="text-[10px] text-slate-500">Pagado:</span>
+              <span id="partner-b-paid" class="text-xs font-bold text-slate-800 ml-1">0 €</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- TAB 2: LISTA DE MOVIMIENTOS -->
+    <section id="tab-records" class="space-y-3 hidden">
+      <!-- Filtro rápido -->
+      <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900 text-white" data-filter="all">Todos</button>
+        <button class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200" data-filter="income">Ingresos</button>
+        <button class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200" data-filter="fixed">Fijos</button>
+        <button class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200" data-filter="variable">Variables</button>
+        <button class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200" data-filter="discretionary">Discrecionales</button>
+      </div>
+
+      <!-- Lista vacía placeholder -->
+      <div id="no-tx-message" class="text-center py-12 text-slate-400">
+        <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+          <i data-lucide="receipt-text" class="w-6 h-6"></i>
+        </div>
+        <p class="text-xs">No hay movimientos en este mes todavía.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Pulsa en el botón <span class="font-bold text-emerald-600">+</span> para añadir uno.</p>
+      </div>
+
+      <!-- Contenedor dinámico de elementos -->
+      <div id="transactions-container" class="space-y-2"></div>
+    </section>
+
+    <!-- TAB 3: EVOLUCIÓN HISTÓRICA -->
+    <section id="tab-analytics" class="space-y-4 hidden">
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Evolución de Ahorro y Gastos</h3>
+        <p class="text-xs text-slate-500 mb-3">Comportamiento dinámico de los últimos meses</p>
+        <div class="h-60 relative w-full">
+          <canvas id="evolutionChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabla resumen últimos meses -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Historial Mensual</h3>
+        <div class="divide-y divide-slate-100" id="history-table-body">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: AJUSTES Y VINCULACIÓN EN PAREJA -->
+    <section id="tab-settings" class="space-y-4 hidden">
+      <!-- Tarjeta de vinculación compartida -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-950">Sincronización en Pareja</h3>
+            <p class="text-xs text-slate-400">Mismo código en ambos iPhones</p>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-600">
+          Introduce la misma clave de hogar o pulsa generar una nueva para compartir el control de gastos en vivo.
+        </p>
+
+        <div class="space-y-2">
+          <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Código de Hogar / Cuenta</label>
+          <div class="flex gap-2">
+            <input type="text" id="household-code-input" placeholder="ej. casa-martin-elena" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-emerald-500">
+            <button id="save-code-btn" class="bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">Conectar</button>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-between items-center text-xs text-slate-500">
+          <span>¿Quieres un código nuevo?</span>
+          <button id="gen-code-btn" class="text-emerald-600 font-bold hover:underline">Generar aleatorio</button>
+        </div>
+      </div>
+
+      <!-- Nombres de la pareja -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Nombres de los Miembros</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 font-semibold">Tú</label>
+            <input type="text" id="partner-a-input" value="Persona 1" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-semibold">Tu Pareja</label>
+            <input type="text" id="partner-b-input" value="Persona 2" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+          </div>
+        </div>
+        <button id="save-partners-btn" class="w-full bg-slate-100 text-slate-700 font-bold text-xs py-2.5 rounded-xl active:bg-slate-200 transition">
+          Guardar Nombres
+        </button>
+      </div>
+
+      <!-- Modo de Instalación iPhone -->
+      <div class="bg-indigo-50/70 border border-indigo-200/60 rounded-2xl p-4 text-xs text-indigo-950 space-y-2">
+        <div class="font-bold flex items-center gap-1.5">
+          <i data-lucide="smartphone" class="w-4 h-4 text-indigo-600"></i>
+          ¿Cómo tenerla como App en iPhone?
+        </div>
+        <p class="leading-relaxed text-slate-700">
+          Abre este enlace en <strong>Safari</strong>, toca el botón de <strong>Compartir</strong> (el cuadrado con flecha hacia arriba) y selecciona <strong>«Añadir a pantalla de inicio»</strong>. Se abrirá a pantalla completa como una app nativa.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTÓN FLOTANTE RÁPIDO '+' -->
+  <button id="fab-add-btn" class="fixed right-5 bottom-20 z-20 w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center active:scale-90 transition-transform">
+    <i data-lucide="plus" class="w-7 h-7 stroke-[2.5]"></i>
+  </button>
+
+  <!-- BARRA DE NAVEGACIÓN INFERIOR (ESTILO iOS) -->
+  <nav class="bg-white/90 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 safe-bottom fixed bottom-0 left-0 right-0 z-10 flex justify-around items-center">
+    <button class="nav-tab active-tab flex flex-col items-center py-1.5 px-3 text-emerald-600" data-target="tab-overview">
+      <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px] font-semibold">Mes Actual</span>
+    </button>
+    <button class="nav-tab flex flex-col items-center py-1.5 px-3 text-slate-400 hover:text-slate-600" data-target="tab-records">
+      <i data-lucide="receipt" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px] font-semibold">Movimientos</span>
+    </button>
+    <button class="nav-tab flex flex-col items-center py-1.5 px-3 text-slate-400 hover:text-slate-600" data-target="tab-analytics">
+      <i data-lucide="trending-up" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px] font-semibold">Evolución</span>
+    </button>
+    <button class="nav-tab flex flex-col items-center py-1.5 px-3 text-slate-400 hover:text-slate-600" data-target="tab-settings">
+      <i data-lucide="settings-2" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px] font-semibold">Pareja</span>
+    </button>
+  </nav>
+
+  <!-- MODAL PARA AGREGAR / EDITAR MOVIMIENTO -->
+  <div id="modal-tx" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar shadow-2xl animate-in slide-in-from-bottom duration-200">
+      
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <h3 id="modal-title" class="text-base font-bold text-slate-900">Nuevo Movimiento</h3>
+        <button id="modal-close-btn" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Selector Tipo: Gasto o Ingreso -->
+      <div class="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl gap-1">
+        <button type="button" id="btn-type-expense" class="py-2 text-xs font-bold rounded-xl bg-white shadow-xs text-slate-900 transition">Gasto</button>
+        <button type="button" id="btn-type-income" class="py-2 text-xs font-bold rounded-xl text-slate-500 transition">Ingreso</button>
+      </div>
+
+      <form id="tx-form" class="space-y-3.5">
+        <input type="hidden" id="tx-id">
+        <input type="hidden" id="tx-type-input" value="expense">
+
+        <!-- Importe Grande -->
+        <div>
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Importe (€)</label>
+          <div class="relative mt-1">
+            <input type="number" step="0.01" inputmode="decimal" id="tx-amount" required placeholder="0.00" class="w-full text-2xl font-black text-slate-900 bg-slate-50 border border-slate-200 rounded-2xl p-3 focus:outline-emerald-500 focus:bg-white transition text-center">
+          </div>
+        </div>
+
+        <!-- Concepto -->
+        <div>
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Concepto</label>
+          <input type="text" id="tx-concept" required placeholder="ej. Compra Mercadona, Alquiler, Restaurante..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-900 focus:outline-emerald-500 mt-1">
+        </div>
+
+        <!-- Categoría (visible solo si es gasto) -->
+        <div id="category-selector-group">
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Tipo de Gasto</label>
+          <div class="grid grid-cols-3 gap-2 mt-1">
+            <label class="cursor-pointer">
+              <input type="radio" name="tx-cat" value="fixed" checked class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-slate-200 text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                <i data-lucide="home" class="w-4 h-4 mx-auto mb-1"></i>
+                <span class="text-[11px] font-bold block">Fijo</span>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="tx-cat" value="variable" class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-slate-200 text-center peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700 transition">
+                <i data-lucide="shopping-cart" class="w-4 h-4 mx-auto mb-1"></i>
+                <span class="text-[11px] font-bold block">Variable</span>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="tx-cat" value="discretionary" class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-slate-200 text-center peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:text-rose-700 transition">
+                <i data-lucide="coffee" class="w-4 h-4 mx-auto mb-1"></i>
+                <span class="text-[11px] font-bold block">Discrecional</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quién lo abonó / A quién pertenece -->
+        <div>
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">¿Quién?</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <label class="cursor-pointer">
+              <input type="radio" name="tx-payer" value="A" checked class="peer sr-only">
+              <div class="p-2 rounded-xl border border-slate-200 text-center peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 font-bold text-xs" id="radio-label-partner-a">
+                Persona 1
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="tx-payer" value="B" class="peer sr-only">
+              <div class="p-2 rounded-xl border border-slate-200 text-center peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 font-bold text-xs" id="radio-label-partner-b">
+                Persona 2
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Fecha -->
+        <div>
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Fecha</label>
+          <input type="date" id="tx-date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800 mt-1">
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-slate-900 text-white rounded-2xl text-xs font-bold shadow-md hover:bg-slate-800 active:scale-[0.98] transition">
+          Guardar Movimiento
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN TIPO TOAST -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg z-50 opacity-0 pointer-events-none transition-all duration-300">
+    Mensaje
+  </div>
+
+  <!-- FIREBASE SCRIPTS (SINCRONIZACIÓN EN TIEMPO REAL) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      deleteDoc, 
+      onSnapshot 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- VARIABLES DE ENTORNO Y CONFIGURACIÓN FIREBASE ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'gastos-pareja-ios';
+    let firebaseConfig = null;
+    try {
+      if (typeof __firebase_config !== 'undefined') {
+        firebaseConfig = JSON.parse(__firebase_config);
+      }
+    } catch (e) {
+      console.warn("No firebase config found or parse error");
+    }
+
+    // Fallback de configuración pública si no está inyectada
+    if (!firebaseConfig) {
+      firebaseConfig = {
+        apiKey: "AIzaSyDummyKeyForFallbackPublicDemo",
+        authDomain: "control-gastos-demo.firebaseapp.com",
+        projectId: "control-gastos-demo",
+        storageBucket: "control-gastos-demo.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:dummy"
+      };
+    }
+
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let unsubscribeFirestore = null;
+
+    // --- ESTADO LOCAL DE LA APLICACIÓN ---
+    let state = {
+      householdCode: 'pareja-demo',
+      partnerA: 'Persona 1',
+      partnerB: 'Persona 2',
+      transactions: [],
+      currentMonth: new Date().toISOString().substring(0, 7), // YYYY-MM
+      activeFilter: 'all'
+    };
+
+    let chartInstance = null;
+
+    // Inicializar fecha por defecto en input
+    document.getElementById('selected-month-input').value = state.currentMonth;
+    document.getElementById('tx-date').value = new Date().toISOString().substring(0, 10);
+
+    // Helpers UI
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      toast.innerText = text;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
+    }
+
+    // Inicializar Firebase
+    async function initFirebase() {
+      const syncStatus = document.getElementById('sync-status');
+      const syncIndicator = document.getElementById('sync-indicator');
+      
+      try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // Autenticación según especificación
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+
+        currentUser = auth.currentUser;
+        syncStatus.innerText = "Sincronizado";
+        syncIndicator.classList.remove('bg-amber-400');
+        syncIndicator.classList.add('bg-emerald-500');
+
+        // Escuchar datos de la cuenta compartida
+        attachFirestoreListener();
+      } catch (err) {
+        console.warn("Modo local activo (sin Firestore directo):", err);
+        syncStatus.innerText = "Modo Local";
+        syncIndicator.classList.remove('bg-amber-400');
+        syncIndicator.classList.add('bg-blue-400');
+        
+        // Cargar datos de prueba iniciales para que el usuario empiece de inmediato
+        loadDefaultSampleData();
+        renderAll();
+      }
+    }
+
+    // Escucha en tiempo real de Firestore para sincronizar los 2 iPhones
+    function attachFirestoreListener() {
+      if (!db || !currentUser) return;
+      if (unsubscribeFirestore) unsubscribeFirestore();
+
+      const normalizedHousehold = (state.householdCode || 'default').toLowerCase().trim();
+      
+      // Colección pública según Regla 1 del entorno
+      const colRef = collection(db, 'artifacts', appId, 'public', 'data', `hh_${normalizedHousehold}`);
+
+      unsubscribeFirestore = onSnapshot(colRef, (snapshot) => {
+        const loadedTx = [];
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          loadedTx.push({ id: docSnap.id, ...d });
+        });
+
+        // Si no hay datos remotos aún, no vaciamos inmediatamente si tenemos datos locales
+        if (loadedTx.length > 0) {
+          state.transactions = loadedTx;
+        } else if (state.transactions.length === 0) {
+          loadDefaultSampleData();
+        }
+
+        renderAll();
+      }, (error) => {
+        console.error("Error al sincronizar:", error);
+        document.getElementById('sync-status').innerText = "Error Sincro";
+      });
+    }
+
+    // Guardar transacción en la nube y local
+    async function persistTransaction(tx) {
+      if (!tx.id) tx.id = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+
+      // Actualizar memoria
+      const idx = state.transactions.findIndex(t => t.id === tx.id);
+      if (idx >= 0) {
+        state.transactions[idx] = tx;
+      } else {
+        state.transactions.push(tx);
+      }
+
+      // Persistir en Firestore si está conectado
+      if (db && currentUser) {
+        try {
+          const normalizedHousehold = (state.householdCode || 'default').toLowerCase().trim();
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', `hh_${normalizedHousehold}`, tx.id);
+          await setDoc(docRef, tx);
+        } catch (e) {
+          console.error("Error guardando doc:", e);
+        }
+      }
+      renderAll();
+    }
+
+    // Borrar transacción
+    async function removeTransaction(id) {
+      state.transactions = state.transactions.filter(t => t.id !== id);
+      if (db && currentUser) {
+        try {
+          const normalizedHousehold = (state.householdCode || 'default').toLowerCase().trim();
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', `hh_${normalizedHousehold}`, id);
+          await deleteDoc(docRef);
+        } catch (e) {
+          console.error("Error borrando doc:", e);
+        }
+      }
+      renderAll();
+      showToast("Movimiento eliminado");
+    }
+
+    // Datos de demostración iniciales con lógica de ahorro
+    function loadDefaultSampleData() {
+      const curM = state.currentMonth;
+      state.transactions = [
+        { id: 'sample-1', type: 'income', amount: 1850, concept: 'Nómina ' + state.partnerA, category: 'income', payer: 'A', date: `${curM}-01` },
+        { id: 'sample-2', type: 'income', amount: 1650, concept: 'Nómina ' + state.partnerB, category: 'income', payer: 'B', date: `${curM}-02` },
+        { id: 'sample-3', type: 'expense', amount: 850, concept: 'Alquiler / Hipoteca', category: 'fixed', payer: 'A', date: `${curM}-03` },
+        { id: 'sample-4', type: 'expense', amount: 95, concept: 'Fibra + Móviles', category: 'fixed', payer: 'B', date: `${curM}-04` },
+        { id: 'sample-5', type: 'expense', amount: 65, concept: 'Luz y Gas', category: 'fixed', payer: 'A', date: `${curM}-05` },
+        { id: 'sample-6', type: 'expense', amount: 320, concept: 'Compra Supermercado 1', category: 'variable', payer: 'B', date: `${curM}-06` },
+        { id: 'sample-7', type: 'expense', amount: 75, concept: 'Gasolina', category: 'variable', payer: 'A', date: `${curM}-08` },
+        { id: 'sample-8', type: 'expense', amount: 68, concept: 'Cena Restaurante Viernes', category: 'discretionary', payer: 'A', date: `${curM}-10` },
+        { id: 'sample-9', type: 'expense', amount: 45, concept: 'Cine y entradas', category: 'discretionary', payer: 'B', date: `${curM}-12` }
+      ];
+    }
+
+    // --- CÁLCULOS Y RENDERIZADO ---
+    function renderAll() {
+      renderNames();
+      renderOverview();
+      renderTransactionsList();
+      renderHistoryAndChart();
+      lucide.createIcons();
+    }
+
+    function renderNames() {
+      document.getElementById('partner-a-name-badge').innerText = state.partnerA;
+      document.getElementById('partner-b-name-badge').innerText = state.partnerB;
+      document.getElementById('radio-label-partner-a').innerText = state.partnerA;
+      document.getElementById('radio-label-partner-b').innerText = state.partnerB;
+    }
+
+    function renderOverview() {
+      const currentMonthTx = state.transactions.filter(t => t.date && t.date.startsWith(state.currentMonth));
+
+      let totalIncome = 0;
+      let totalFixed = 0;
+      let totalVariable = 0;
+      let totalDiscretionary = 0;
+      let paidByA = 0;
+      let paidByB = 0;
+
+      currentMonthTx.forEach(t => {
+        const val = parseFloat(t.amount) || 0;
+        if (t.type === 'income') {
+          totalIncome += val;
+        } else {
+          if (t.category === 'fixed') totalFixed += val;
+          else if (t.category === 'variable') totalVariable += val;
+          else if (t.category === 'discretionary') totalDiscretionary += val;
+
+          // Reparto gastos
+          if (t.payer === 'A') paidByA += val;
+          if (t.payer === 'B') paidByB += val;
+        }
+      });
+
+      const totalExpenses = totalFixed + totalVariable + totalDiscretionary;
+      const netSavings = totalIncome - totalExpenses;
+      const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
+
+      // KPIs
+      document.getElementById('kpi-income').innerText = formatCurrency(totalIncome);
+      document.getElementById('kpi-expense').innerText = formatCurrency(totalExpenses);
+      document.getElementById('kpi-savings').innerText = formatCurrency(netSavings);
+      document.getElementById('kpi-savings-pct').innerText = `${savingsRate.toFixed(1)}% tasa ahorro`;
+
+      if (netSavings < 0) {
+        document.getElementById('kpi-savings').className = "text-3xl font-extrabold tracking-tight text-rose-600";
+        document.getElementById('kpi-savings-pct').className = "text-base font-bold text-rose-600";
+      } else {
+        document.getElementById('kpi-savings').className = "text-3xl font-extrabold tracking-tight text-slate-900";
+        document.getElementById('kpi-savings-pct').className = "text-base font-bold text-emerald-600";
+      }
+
+      // Porcentajes sobre ingreso dinámico
+      const pFixed = totalIncome > 0 ? (totalFixed / totalIncome) * 100 : 0;
+      const pVar = totalIncome > 0 ? (totalVariable / totalIncome) * 100 : 0;
+      const pDisc = totalIncome > 0 ? (totalDiscretionary / totalIncome) * 100 : 0;
+      const pSave = Math.max(0, savingsRate);
+
+      // Actualizar Textos y Barras
+      document.getElementById('cat-fixed-val').innerText = formatCurrency(totalFixed);
+      document.getElementById('cat-fixed-pct').innerHTML = `${pFixed.toFixed(0)}% <span class="text-slate-400 font-normal">/ ref 50%</span>`;
+      document.getElementById('cat-fixed-progress').style.width = `${Math.min(pFixed, 100)}%`;
+
+      document.getElementById('cat-var-val').innerText = formatCurrency(totalVariable);
+      document.getElementById('cat-var-pct').innerText = `${pVar.toFixed(0)}%`;
+      document.getElementById('cat-var-progress').style.width = `${Math.min(pVar, 100)}%`;
+
+      document.getElementById('cat-disc-val').innerText = formatCurrency(totalDiscretionary);
+      document.getElementById('cat-disc-pct').innerHTML = `${pDisc.toFixed(0)}% <span class="text-slate-400 font-normal">/ ref 30%</span>`;
+      document.getElementById('cat-disc-progress').style.width = `${Math.min(pDisc, 100)}%`;
+
+      // Barra superior conjunta
+      document.getElementById('bar-fixed').style.width = `${Math.min(pFixed, 100)}%`;
+      document.getElementById('bar-variable').style.width = `${Math.min(pVar, 100)}%`;
+      document.getElementById('bar-discretionary').style.width = `${Math.min(pDisc, 100)}%`;
+      document.getElementById('bar-savings').style.width = `${Math.min(pSave, 100)}%`;
+
+      // Alerta discrecional
+      const discWarning = document.getElementById('disc-warning-banner');
+      if (pDisc > 30 && totalIncome > 0) {
+        discWarning.classList.remove('hidden');
+      } else {
+        discWarning.classList.add('hidden');
+      }
+
+      // Resumen aportes en pareja
+      document.getElementById('partner-a-paid').innerText = formatCurrency(paidByA);
+      document.getElementById('partner-b-paid').innerText = formatCurrency(paidByB);
+
+      // Diagnóstico del Mes
+      updateDiagnosticCard(savingsRate, netSavings, totalIncome, pDisc);
+    }
+
+    function updateDiagnosticCard(savingsRate, netSavings, totalIncome, pDisc) {
+      const card = document.getElementById('diagnostic-card');
+      const title = document.getElementById('diagnostic-title');
+      const rateBadge = document.getElementById('diagnostic-rate');
+      const desc = document.getElementById('diagnostic-desc');
+      const icon = document.getElementById('diagnostic-icon');
+
+      if (totalIncome === 0) {
+        card.className = "rounded-2xl p-4 transition-all shadow-sm flex items-start gap-3 bg-slate-100 border border-slate-200 text-slate-800";
+        title.innerText = "Añade los Ingresos";
+        title.className = "text-xs font-bold uppercase tracking-wider text-slate-600";
+        rateBadge.innerText = "0 €";
+        rateBadge.className = "text-xs font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700";
+        desc.innerText = "Registra los ingresos mensuales para activar el análisis dinámico 50/30/20.";
+        icon.className = "p-2 rounded-xl bg-white shadow-xs text-slate-500 mt-0.5";
+        return;
+      }
+
+      if (savingsRate >= 20) {
+        // ★ Plan Sobresaliente
+        card.className = "rounded-2xl p-4 transition-all shadow-sm flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-950";
+        title.innerText = "★ Plan Sobresaliente";
+        title.className = "text-xs font-bold uppercase tracking-wider text-emerald-800";
+        rateBadge.innerText = `${savingsRate.toFixed(1)}% ahorro`;
+        rateBadge.className = "text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900";
+        desc.innerText = "¡Enhorabuena! El plan funciona a la perfección. La meta de ahorro supera el 20% y hay solvencia.";
+        icon.className = "p-2 rounded-xl bg-white shadow-xs text-emerald-600 mt-0.5";
+      } else if (savingsRate >= 10) {
+        // ✔ Plan Positivo
+        card.className = "rounded-2xl p-4 transition-all shadow-sm flex items-start gap-3 bg-blue-50 border border-blue-200 text-blue-950";
+        title.innerText = "✔ Plan Positivo";
+        title.className = "text-xs font-bold uppercase tracking-wider text-blue-800";
+        rateBadge.innerText = `${savingsRate.toFixed(1)}% ahorro`;
+        rateBadge.className = "text-xs font-extrabold px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900";
+        desc.innerText = pDisc > 30 
+          ? "Buen margen de ahorro, pero los gastos discrecionales están un poco altos. Ajustad ocio si queréis subir al 20%."
+          : "Cierre de mes saludable. Los gastos están cubiertos y se mantiene un ahorro moderado constante.";
+        icon.className = "p-2 rounded-xl bg-white shadow-xs text-blue-600 mt-0.5";
+      } else {
+        // ⚠ Ajustar Gastos
+        card.className = "rounded-2xl p-4 transition-all shadow-sm flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-950";
+        title.innerText = "⚠ Plan a Ajustar";
+        title.className = "text-xs font-bold uppercase tracking-wider text-rose-800";
+        rateBadge.innerText = `${savingsRate.toFixed(1)}% ahorro`;
+        rateBadge.className = "text-xs font-extrabold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900";
+        desc.innerText = netSavings < 0 
+          ? "¡Alerta de déficit! Los gastos superan los ingresos este mes. Recortad gastos discrecionales inmediatamente."
+          : "El ahorro es inferior al 10%. Revisad la lista de gastos discrecionales y variables para recortar compras prescindibles.";
+        icon.className = "p-2 rounded-xl bg-white shadow-xs text-rose-600 mt-0.5";
+      }
+    }
+
+    function renderTransactionsList() {
+      const container = document.getElementById('transactions-container');
+      const noTxMsg = document.getElementById('no-tx-message');
+      container.innerHTML = '';
+
+      let list = state.transactions.filter(t => t.date && t.date.startsWith(state.currentMonth));
+
+      // Aplicar filtro de chip
+      if (state.activeFilter !== 'all') {
+        if (state.activeFilter === 'income') {
+          list = list.filter(t => t.type === 'income');
+        } else {
+          list = list.filter(t => t.type === 'expense' && t.category === state.activeFilter);
+        }
+      }
+
+      // Ordenar por fecha descendente
+      list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      if (list.length === 0) {
+        noTxMsg.classList.remove('hidden');
+        return;
+      }
+      noTxMsg.classList.add('hidden');
+
+      list.forEach(tx => {
+        const item = document.createElement('div');
+        item.className = "bg-white p-3.5 rounded-2xl border border-slate-200/70 shadow-xs flex items-center justify-between transition active:bg-slate-50";
+
+        let catIcon = 'coffee';
+        let catColor = 'text-rose-500 bg-rose-50';
+        let catName = 'Discrecional';
+
+        if (tx.type === 'income') {
+          catIcon = 'trending-up';
+          catColor = 'text-emerald-500 bg-emerald-50';
+          catName = 'Ingreso';
+        } else if (tx.category === 'fixed') {
+          catIcon = 'home';
+          catColor = 'text-blue-500 bg-blue-50';
+          catName = 'Fijo';
+        } else if (tx.category === 'variable') {
+          catIcon = 'shopping-cart';
+          catColor = 'text-amber-500 bg-amber-50';
+          catName = 'Variable';
+        }
+
+        const payerLabel = tx.payer === 'A' ? state.partnerA : state.partnerB;
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${catColor}">
+              <i data-lucide="${catIcon}" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-slate-900 leading-tight">${escapeHtml(tx.concept)}</h4>
+              <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                <span>${tx.date}</span>
+                <span>•</span>
+                <span class="font-semibold text-slate-600">${escapeHtml(payerLabel)}</span>
+                <span>•</span>
+                <span>${catName}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}">
+              ${tx.type === 'income' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)} €
+            </span>
+            <button class="btn-delete p-1.5 text-slate-300 hover:text-rose-500 rounded-lg active:bg-slate-100" data-id="${tx.id}">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(item);
+      });
+
+      // Eventos borrar
+      container.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          removeTransaction(id);
+        });
+      });
+    }
+
+    function renderHistoryAndChart() {
+      // Agrupar por mes los últimos 6 meses
+      const monthlyData = {};
+
+      state.transactions.forEach(t => {
+        if (!t.date) return;
+        const m = t.date.substring(0, 7);
+        if (!monthlyData[m]) {
+          monthlyData[m] = { income: 0, expense: 0, savings: 0 };
+        }
+        const val = parseFloat(t.amount) || 0;
+        if (t.type === 'income') {
+          monthlyData[m].income += val;
+        } else {
+          monthlyData[m].expense += val;
+        }
+      });
+
+      const months = Object.keys(monthlyData).sort();
+      months.forEach(m => {
+        monthlyData[m].savings = monthlyData[m].income - monthlyData[m].expense;
+      });
+
+      // Tabla Histórico
+      const tbody = document.getElementById('history-table-body');
+      tbody.innerHTML = '';
+
+      if (months.length === 0) {
+        tbody.innerHTML = '<div class="py-4 text-center text-xs text-slate-400">No hay datos suficientes</div>';
+      } else {
+        [...months].reverse().forEach(m => {
+          const row = monthlyData[m];
+          const rate = row.income > 0 ? (row.savings / row.income) * 100 : 0;
+          const div = document.createElement('div');
+          div.className = "py-3 flex justify-between items-center text-xs";
+          div.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-800">${m}</span>
+              <div class="text-[10px] text-slate-400">Ing: ${formatCurrency(row.income)} | Gastos: ${formatCurrency(row.expense)}</div>
+            </div>
+            <div class="text-right">
+              <span class="font-bold ${row.savings >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${formatCurrency(row.savings)}</span>
+              <div class="text-[10px] font-semibold text-slate-500">${rate.toFixed(0)}% ahorro</div>
+            </div>
+          `;
+          tbody.appendChild(div);
+        });
+      }
+
+      // Chart.js
+      const ctx = document.getElementById('evolutionChart');
+      if (!ctx) return;
+
+      const labels = months.slice(-6);
+      const incData = labels.map(m => monthlyData[m].income);
+      const expData = labels.map(m => monthlyData[m].expense);
+      const savData = labels.map(m => Math.max(0, monthlyData[m].savings));
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Ingresos',
+              data: incData,
+              backgroundColor: '#10b981',
+              borderRadius: 6,
+            },
+            {
+              label: 'Gastos',
+              data: expData,
+              backgroundColor: '#f43f5e',
+              borderRadius: 6,
+            },
+            {
+              label: 'Ahorro',
+              data: savData,
+              backgroundColor: '#3b82f6',
+              borderRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 10,
+                font: { size: 10 }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 10 } }
+            },
+            y: {
+              grid: { color: '#f1f5f9' },
+              ticks: { font: { size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // --- EVENTOS DE INTERACCIÓN ---
+
+    // Cambio de mes
+    document.getElementById('selected-month-input').addEventListener('change', (e) => {
+      state.currentMonth = e.target.value;
+      renderAll();
+    });
+
+    // Pestañas (Tabs)
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => {
+          t.classList.remove('active-tab', 'text-emerald-600');
+          t.classList.add('text-slate-400');
+        });
+        tab.classList.add('active-tab', 'text-emerald-600');
+        tab.classList.remove('text-slate-400');
+
+        const target = tab.getAttribute('data-target');
+        document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+        document.getElementById(target).classList.remove('hidden');
+
+        if (target === 'tab-analytics') {
+          setTimeout(renderHistoryAndChart, 50);
+        }
+      });
+    });
+
+    // Filtros de chips en Movimientos
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(c => {
+          c.classList.remove('bg-slate-900', 'text-white');
+          c.classList.add('bg-white', 'text-slate-600');
+        });
+        chip.classList.add('bg-slate-900', 'text-white');
+        chip.classList.remove('bg-white', 'text-slate-600');
+
+        state.activeFilter = chip.getAttribute('data-filter');
+        renderTransactionsList();
+        lucide.createIcons();
+      });
+    });
+
+    // Modal Operaciones
+    const modal = document.getElementById('modal-tx');
+    const fabBtn = document.getElementById('fab-add-btn');
+    const closeBtn = document.getElementById('modal-close-btn');
+    const txForm = document.getElementById('tx-form');
+    const btnTypeExp = document.getElementById('btn-type-expense');
+    const btnTypeInc = document.getElementById('btn-type-income');
+    const txTypeInput = document.getElementById('tx-type-input');
+    const catGroup = document.getElementById('category-selector-group');
+
+    fabBtn.addEventListener('click', () => {
+      txForm.reset();
+      document.getElementById('tx-id').value = '';
+      document.getElementById('tx-date').value = new Date().toISOString().substring(0, 10);
+      setType('expense');
+      modal.classList.remove('hidden');
+    });
+
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+    btnTypeExp.addEventListener('click', () => setType('expense'));
+    btnTypeInc.addEventListener('click', () => setType('income'));
+
+    function setType(type) {
+      txTypeInput.value = type;
+      if (type === 'expense') {
+        btnTypeExp.className = "py-2 text-xs font-bold rounded-xl bg-white shadow-xs text-slate-900 transition";
+        btnTypeInc.className = "py-2 text-xs font-bold rounded-xl text-slate-500 transition";
+        catGroup.classList.remove('hidden');
+      } else {
+        btnTypeInc.className = "py-2 text-xs font-bold rounded-xl bg-white shadow-xs text-slate-900 transition";
+        btnTypeExp.className = "py-2 text-xs font-bold rounded-xl text-slate-500 transition";
+        catGroup.classList.add('hidden');
+      }
+    }
+
+    txForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('tx-id').value;
+      const type = txTypeInput.value;
+      const amount = parseFloat(document.getElementById('tx-amount').value);
+      const concept = document.getElementById('tx-concept').value.trim();
+      const date = document.getElementById('tx-date').value;
+      const payer = document.querySelector('input[name="tx-payer"]:checked')?.value || 'A';
+      
+      let category = 'income';
+      if (type === 'expense') {
+        category = document.querySelector('input[name="tx-cat"]:checked')?.value || 'fixed';
+      }
+
+      if (!amount || isNaN(amount) || amount <= 0) {
+        showToast("Por favor introduce un importe válido");
+        return;
+      }
+
+      persistTransaction({
+        id: id || undefined,
+        type,
+        amount,
+        concept,
+        date,
+        payer,
+        category
+      });
+
+      modal.classList.add('hidden');
+      showToast("Movimiento añadido con éxito");
+    });
+
+    // Ajustes y Hogar compartido
+    const householdInput = document.getElementById('household-code-input');
+    householdInput.value = state.householdCode;
+
+    document.getElementById('save-code-btn').addEventListener('click', () => {
+      const code = householdInput.value.trim().toLowerCase();
+      if (!code) return;
+      state.householdCode = code;
+      attachFirestoreListener();
+      showToast(`Conectado al hogar: ${code}`);
+    });
+
+    document.getElementById('gen-code-btn').addEventListener('click', () => {
+      const randomCode = 'casa-' + Math.random().toString(36).substring(2, 7);
+      householdInput.value = randomCode;
+      state.householdCode = randomCode;
+      attachFirestoreListener();
+      showToast(`Nuevo código asignado: ${randomCode}`);
+    });
+
+    // Guardar Nombres Pareja
+    document.getElementById('save-partners-btn').addEventListener('click', () => {
+      const pA = document.getElementById('partner-a-input').value.trim();
+      const pB = document.getElementById('partner-b-input').value.trim();
+      if (pA) state.partnerA = pA;
+      if (pB) state.partnerB = pB;
+      renderAll();
+      showToast("Nombres actualizados");
+    });
+
+    // Inicio de la app
+    window.addEventListener('load', () => {
+      initFirebase();
+      renderAll();
+    });
+  </script>
+</body>
+</html>

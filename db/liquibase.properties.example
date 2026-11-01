@@ -1,0 +1,6 @@
+# Copia a liquibase.properties (ignorado por git) y rellena.
+# Supabase > Project Settings > Database > Connection string (JDBC). Usa el puerto 5432 (session / direct).
+changelogFile=changelog/db.changelog-root.yaml
+url=jdbc:postgresql://aws-0-XX.pooler.supabase.com:5432/postgres?sslmode=require
+username=postgres.TU_PROJECT_REF
+password=TU_PASSWORD_DE_BD
