@@ -65,6 +65,8 @@ const isIncome = computed(() => props.tx.type === 'income');
     </div>
   </div>
 
+  
+
   <Teleport to="body">
     <div
       v-if="confirming"
